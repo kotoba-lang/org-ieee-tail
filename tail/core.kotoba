@@ -84,30 +84,82 @@ b" 1 2))
         -1
         (after-nth-newline s (+ from (+ i 1)) (- remaining 1))))))
 
+(defn digit-text [d :i64] :string
+  (string-substring "0123456789" d (+ d 1)))
+
+(defn decimal-of [n :i64] :string
+  (if (< n 10)
+    (digit-text n)
+    (string-concat (decimal-of (quot n 10))
+                   (digit-text (- n (* 10 (quot n 10)))))))
+
+;; --- several operands ----------------------------------------------------
+;;
+;; With TWO OR MORE files each is introduced by `==> FILE <==`, and with one
+;; there is no header. A blank line precedes every header EXCEPT the first
+;; one PRINTED -- a missing operand does not count. Measured against
+;; /usr/bin/tail 2026-09-10, and identical to head's rule, which is why the
+;; same shape appears in both: the two utilities agree here.
+;;
+;;   tail -n 1 nope.txt h1.txt      h1's header has NO blank line before it
+;;   tail -n 1 h1.txt nope.txt h2   h2's header DOES
+(defn header [path :string] :string
+  (do (emit "==> ") (emit path) (emit " <==") (emit (nl))))
+
+;; Returns 1, because after this a header has been written.
+(defn show [path :string count :i64 multi? :i64 printed? :i64] :i64
+  (do
+    (if (= multi? 1)
+      (do (if (= printed? 1) (emit (nl)) "")
+          (header path))
+      "")
+    (let [text (slurp-file path)
+          len (string-byte-length text)
+          nls (count-newlines text 0 0)
+          ends-nl? (if (= nls 0) false (= (after-nth-newline text 0 nls) len))
+          lines (if (= len 0) 0 (if ends-nl? nls (+ nls 1)))
+          skip (if (> lines count) (- lines count) 0)]
+      (emit (string-substring text (after-nth-newline text 0 skip) len)))
+    1))
+
+(defn complain [path :string] :i64
+  (do
+    (emit-error "tail: ")
+    (emit-error path)
+    (emit-error ": No such file or directory")
+    (emit-error (nl))
+    1))
+
+;; One word carries both the header flag (bit 0) and the failure (bit 1),
+;; because five parameters is the compiler's limit and this walk needs the
+;; index, the total, the count and the multi flag as well.
+(defn each [i :i64 total :string count :i64 multi? :i64 state :i64] :i64
+  (if (string=? (decimal-of i) total)
+    state
+    (let [path (arg (decimal-of i))]
+      (if (readable? path)
+        (each (+ i 1) total count multi?
+              (+ (show path count multi? (- state (* 2 (quot state 2))))
+                 (* 2 (quot state 2))))
+        (each (+ i 1) total count multi?
+              (do (complain path)
+                  (+ (- state (* 2 (quot state 2))) 2)))))))
+
 (defn main [] :i64
   (let [total (arg "")
-        flagged? (if (string=? total "3") (string=? (arg "0") "-n") false)
+        flagged? (if (string=? (arg "0") "-n") true false)
         count (if flagged? (parse-count (arg "1")) 10)
-        path (if flagged? (arg "2") (arg "0"))]
+        first-file (if flagged? 2 0)
+        files (- (parse-count total) first-file)]
     (if (< count 0)
       (do
         (emit-error "tail: illegal offset -- ")
         (emit-error (arg "1"))
         (emit-error (nl))
         1)
-      (if (readable? path)
-        (let [text (slurp-file path)
-              len (string-byte-length text)
-              nls (count-newlines text 0 0)
-              ends-nl? (if (= nls 0) false (= (after-nth-newline text 0 nls) len))
-              lines (if (= len 0) 0 (if ends-nl? nls (+ nls 1)))
-              skip (if (> lines count) (- lines count) 0)]
-          (do
-            (emit (string-substring text (after-nth-newline text 0 skip) len))
-            0))
-        (do
-          (emit-error "tail: ")
-          (emit-error path)
-          (emit-error ": No such file or directory")
-          (emit-error (nl))
-          1)))))
+      (if (< files 1)
+        ;; No file operand. POSIX reads standard input; there is no stdin
+        ;; capability, so this refuses rather than pretending to have read an
+        ;; empty one.
+        1
+        (quot (each first-file total count (if (> files 1) 1 0) 0) 2)))))

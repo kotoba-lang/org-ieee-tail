@@ -64,7 +64,19 @@
    ;; Not an error, unlike head.
    ["-n" "0" "three"] ["-n" "0" "empty"]
    ["-n" "1" "partial"] ["-n" "2" "blanks"] ["-n" "3" "nonl"]
-   ["missing"]])
+   ["missing"]
+   ;; --- two or more operands ------------------------------------------
+   ;; Headers, and the separator rule head shares: a blank line before every
+   ;; header EXCEPT the first one PRINTED, where a missing operand does not
+   ;; count as printed. `missing three` is the case that separates that from
+   ;; keying off the operand's position.
+   ["three" "twenty"] ["-n" "2" "three" "twenty"] ["three" "three"]
+   ["three" "empty" "twenty"] ["-n" "1" "nonl" "three"]
+   ["missing" "three"] ["three" "missing" "twenty"] ["three" "missing"]
+   ;; -n 0 with several files still writes every header and no body.
+   ["-n" "0" "three" "twenty"]
+   ;; One unreadable operand among two that printed: exit 1.
+   ["-n" "2" "three" "missing" "twenty"]])
 
 (when-not amu-home (refuse "set AMU_HOME to an amu checkout"))
 (let [amu (.join path amu-home "bin" "amu")

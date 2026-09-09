@@ -64,6 +64,34 @@ on both sides**, the difference being the exit status alone.
 (`tail: PATH: No such file or directory`, exit 1) using wire 35's `EXISTS`
 form — the read form traps, and a trap cannot be caught.
 
+## Several files: the same rule head uses
+
+With **two or more** operands each file is introduced by `==> FILE <==`; with
+one there is no header. A blank line precedes every header **except the first
+one printed** — a missing operand does not count. Measured against
+`/usr/bin/tail` 2026-09-10, and identical to `head`'s rule, which is why the
+same shape appears in both: the two utilities genuinely agree here rather
+than one being assumed from the other.
+
+```
+tail -n 1 nope.txt h1.txt        h1's header has NO blank line before it
+tail -n 1 h1.txt nope.txt h2.txt h2's header DOES
+```
+
+The control is exact: counting a missing operand as printed fails **one**
+case, `missing three`, and no other. Emitting headers for a single file too
+fails all 15 single-file cases.
+
+`-n 0` with several files still writes every header and no body, which is the
+case where tail differs from head — head rejects `-n 0` as an illegal line
+count and tail accepts it.
+
 ## What this is not
 
-One operand. No `-c`, `-f`, `-r`, no `+N` form, no reading standard input.
+No `-c`, `-f`, `-r`, no `+N` form, no reading standard input — with no file
+operand this exits 1 rather than pretending to have read an empty one.
+
+The walk carries the exit status and the header flag in one word (bit 0
+written, bit 1 failed), because five parameters is the compiler's limit
+(`kotoba.compiler.frontend/max-parameters`, an ABI arity limit rather than a
+language decision).
