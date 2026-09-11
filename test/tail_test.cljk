@@ -1,4 +1,4 @@
-;; test/tail_test.cljs — build the command and compare it with the system
+;; test/tail_test.cljk — build the command and compare it with the system
 ;; tail, byte for byte, on stdout, stderr AND exit status.
 ;;
 ;; tail and head are near-twins that differ in two measured ways, and both
