@@ -86,10 +86,22 @@ fails all 15 single-file cases.
 case where tail differs from head — head rejects `-n 0` as an illegal line
 count and tail accepts it.
 
+## Standard input
+
+With no file operand `tail` reads standard input (wire 41 `:io/read`,
+2026-09-16) — 94% of how it is invoked in agent tool use (38,255 of 40,584
+over 1,268,018 measured Bash calls). `tail` needs the *end* of its input, so
+this is the whole-input form: input larger than the binary's string pool is
+refused (exit 120), never silently truncated to its last pool-full.
+
+Landing that moved both newline walks to `string-find-byte`, which mints
+nothing: they used to cut a substring per line, and three walks over 65,536
+lines was 196,000 pairs — the 4 MB stdin case met the 200,000-pair budget at
+exit 120, and the file path had the same ceiling.
+
 ## What this is not
 
-No `-c`, `-f`, `-r`, no `+N` form, no reading standard input — with no file
-operand this exits 1 rather than pretending to have read an empty one.
+No `-c`, `-f`, `-r`, no `+N` form.
 
 The walk carries the exit status and the header flag in one word (bit 0
 written, bit 1 failed), because five parameters is the compiler's limit
