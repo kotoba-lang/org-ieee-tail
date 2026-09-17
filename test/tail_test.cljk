@@ -90,7 +90,15 @@
    {:argv ["-n" "25"] :stdin "twenty"}
    ;; Larger than one pipe buffer (64 KiB), so the whole-input form has to
    ;; keep reading past the first read(2): 4 MB of lines, the last two.
-   {:argv ["-n" "2"] :stdin :four-megabytes}])
+   {:argv ["-n" "2"] :stdin :four-megabytes}
+   ;; --- the numeric shorthand (2026-09-17) --------------------------------
+   ;; `tail -1` is 16,939 of the measured calls and `tail -2` 7,336: the
+   ;; most frequent form, and it was a usage error here. `-nN` attached too.
+   ["-1" "twenty"] ["-2" "twenty"] ["-20" "twenty"] ["-25" "twenty"] ["-0" "three"] ["-1" "partial"]
+   ["-n2" "twenty"] ["-n0" "three"] ["-1" "three" "twenty"] ["-2" "missing" "three"]
+   {:argv ["-1"] :stdin "twenty"} {:argv ["-3"] :stdin "blanks"} {:argv ["-n1"] :stdin "partial"}
+   ;; -x is a usage error; -n x an illegal offset. Both compared.
+   ["-n" "x" "three"] ["-nx" "three"]])
 
 (when-not amu-home (refuse "set AMU_HOME to an amu checkout"))
 (let [amu (.join path amu-home "bin" "amu")
