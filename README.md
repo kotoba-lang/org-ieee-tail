@@ -86,6 +86,14 @@ fails all 15 single-file cases.
 case where tail differs from head — head rejects `-n 0` as an illegal line
 count and tail accepts it.
 
+## The count, in its three spellings
+
+`tail -N`, `tail -n N`, `tail -nN`. Measured 2026-09-17 over 1,268,018 agent
+Bash calls: `tail -1` is 16,939 of them and `tail -2` 7,336 — the numeric
+shorthand is the most frequent form by far, and until that day it was a
+usage error here. A non-numeric count answers `tail: illegal offset -- x:
+Invalid argument`, byte for byte.
+
 ## Standard input
 
 With no file operand `tail` reads standard input (wire 41 `:io/read`,

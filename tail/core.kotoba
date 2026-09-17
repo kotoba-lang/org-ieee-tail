@@ -1,7 +1,7 @@
 ;; tail -- POSIX tail (IEEE Std 1003.1) for ONE operand.
 ;;
 ;;   tail FILE          the last 10 lines
-;;   tail -n N FILE     the last N lines, N >= 0
+;;   tail -n N FILE     the last N lines, N >= 0 (also -N and -nN)
 ;;   ... | tail [-n N]  the same, from standard input (wire 41, 2026-09-16:
 ;;                      94% of tail's invocations in agent tool use are a
 ;;                      later pipeline segment, 38,255 of 40,584 measured).
@@ -161,16 +161,49 @@ b" 1 2))
               (do (complain path)
                   (+ (- state (* 2 (quot state 2))) 2)))))))
 
+;; The count flag in its three spellings, measured 2026-09-17 over 1,268,018
+;; agent Bash calls: `tail -1` 16,939 and `tail -2` 7,336 -- the NUMERIC
+;; SHORTHAND is the most frequent form by far -- then `-n N` and `-nN`. A
+;; leading dash followed by a digit is a count; `-n` takes the next
+;; argument or its attached tail.
+(defn- dash-digit? [a :string] :bool
+  (if (< (string-byte-length a) 2)
+    false
+    (if (= (string-code-point-at a 0) 45)
+      (let [c (string-code-point-at a 1)] (if (>= c 48) (<= c 57) false))
+      false)))
+
+;; How many arguments the count flag consumed: 0, 1 (`-N`, `-nN`) or 2 (`-n N`).
+(defn- flag-width [] :i64
+  (let [a (arg "0")]
+    (if (string=? a "-n")
+      2
+      (if (dash-digit? a)
+        1
+        (if (if (>= (string-byte-length a) 3) (string=? (string-substring a 0 2) "-n") false)
+          1
+          0)))))
+
+(defn- count-text [] :string
+  (let [a (arg "0")]
+    (if (string=? a "-n")
+      (arg "1")
+      (if (dash-digit? a)
+        (string-substring a 1 (string-byte-length a))
+        (string-substring a 2 (string-byte-length a))))))
+
 (defn main [] :i64
   (let [total (arg "")
-        flagged? (if (string=? (arg "0") "-n") true false)
-        count (if flagged? (parse-count (arg "1")) 10)
-        first-file (if flagged? 2 0)
+        width (flag-width)
+        count (if (= width 0) 10 (parse-count (count-text)))
+        first-file width
         files (- (parse-count total) first-file)]
     (if (< count 0)
       (do
+        ;; Verbatim: `tail: illegal offset -- x: Invalid argument`.
         (emit-error "tail: illegal offset -- ")
-        (emit-error (arg "1"))
+        (emit-error (count-text))
+        (emit-error ": Invalid argument")
         (emit-error (nl))
         1)
       (if (< files 1)
